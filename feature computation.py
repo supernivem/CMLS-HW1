@@ -3,19 +3,11 @@ import librosa
 import scipy as sp
 
 
-
 import matplotlib.pyplot as plt
 import IPython.display as ipd
 from sklearn.mixture import BayesianGaussianMixture
 import scipy.stats
 import seaborn as sns
-
-
-
-
-
-
-
 
 
 def compute_zcr(win, Fs):
