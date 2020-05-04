@@ -1,5 +1,5 @@
 
-instruments = ['GM', 'BM', 'GP']
+instruments = ['GM']
 classes = ['NOFX', 'TREM', 'DIST']
 
 features = ['ZCR', 'SpecRollOff']

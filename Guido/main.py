@@ -10,9 +10,9 @@ import seaborn as sns
 import os
 import sklearn
 
-from parameters import *
-from features import *
-from metrics import *
+from Guido.parameters import *
+from Guido.features import *
+from Guido.metrics import *
 
 # Compute features and labels
 x_train, y_train, x_test, y_test = [], [], [], []

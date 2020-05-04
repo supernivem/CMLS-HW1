@@ -8,7 +8,7 @@ from sklearn.mixture import BayesianGaussianMixture
 import scipy.stats
 import seaborn as sns
 
-from parameters import *
+from Guido.parameters import *
 
 
 def compute_metrics(gt_labels, predicted_labels):
