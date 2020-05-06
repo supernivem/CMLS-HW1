@@ -9,6 +9,7 @@ import seaborn as sns
 
 import os
 import sklearn
+from tqdm import tqdm
 
 from Guido.parameters import *
 from Guido.features import *
@@ -24,13 +25,13 @@ for inst in instruments:
 		last_file_excluded = np.floor(n_files * data_proportion)
 		last_train_file_excluded = np.floor(n_files * data_proportion * (1 - test_proportion))
 
-		for file_index, file in enumerate(files):
+		for i in tqdm(range(n_files)):
 
-			if file_index < last_file_excluded:
-				audio, fs = librosa.load(os.path.join(root, file), sr=None)
-				temp_features = compute_features(features, audio, fs)
+			if i < last_file_excluded:
+				audio, fs = librosa.load(os.path.join(root, files[i]), sr=None)
+				temp_features = compute_features(audio, fs)
 
-				if file_index < last_train_file_excluded:
+				if i < last_train_file_excluded:
 					x_train.append(temp_features)
 					y_train.append(cls)
 				else:
