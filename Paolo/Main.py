@@ -3,11 +3,11 @@ import librosa
 import os
 import matplotlib.pyplot as plt
 import sklearn.svm
-#import IPython.display as ipd
 import scipy as sp
+import random
 
 
-#%% SPECTRAL DECREASE
+#%% FEATURE DEFINITION
 def compute_specdec(spec):
     mul_fact = 1 / (np.sum(np.abs(spec[1:])) + 1e-16)  # avoid division by zero
     num = np.abs(spec[1:]) - np.tile(np.abs(spec[0]), len(spec) - 1)  # costruisce un array ripetendo il valore specificato
@@ -16,14 +16,14 @@ def compute_specdec(spec):
     return spectral_decrease
 
 
-#%% SPECTRAL CENTROID
+# SPECTRAL CENTROID
 def compute_speccentr(spec):
     k_axis = np.arange(1, spec.shape[0] + 1)  # numeri che vanno da 1 incluso a lunghezza spec + 1 escluso
     centr = np.sum(np.transpose(k_axis) * np.abs(spec)) / (np.sum(np.abs(spec)) + 1e-16)  # prodotto matriciale! Tra vettori, il primo va trasposto
     return centr
 
 
-#%% AUDIO POWER
+#%% PREPROCESSING
 def compute_audio_power(frame):
     length = len(frame)
     total_power = np.sum(np.power(frame, 2))
@@ -42,53 +42,75 @@ def cut_before_power_max(audio):
 
 #%% COMPUTE TRAINING FEATURE
 classes = ['NoFX', 'Tremolo', 'Distortion']
+instruments = ['Bass monophon', 'Gitarre monophon', 'Gitarre polyphon']
 path = 'C:/Users/pao_b/Documents/POLITECNICO/AA 2019-20/CMLS/Homework1/'
 dict_train_features = {'Tremolo': [], 'Distortion': [], 'NoFX': []}
 dict_test_features = {'Tremolo': [], 'Distortion': [], 'NoFX': []}
 
-for c in classes:
-    root = path + 'IDMT-SMT-AUDIO-EFFECTS/Bass monophon/Samples/{}/'.format(c)  # path of the file parametrized
-    class_files = [f for f in os.listdir(root) if f.endswith('.wav')]  # array of the traks
-    n_train_samples = len(class_files)
-    windows = 11
-    pivot = int(np.floor(n_train_samples*0.8))
-    class_train_files = class_files[:pivot]
-    n_train_samples = len(class_train_files)
-    train_features = np.zeros((n_train_samples, windows))
-    for index, f in enumerate(class_train_files):
-        audio, fs = librosa.load(os.path.join(root, f), sr=None)  # loads the file
-        audio = cut_before_power_max(audio)
-        audio_length = len(audio)
-        win_length = int(np.floor(audio_length/11))  # definisce la lunghezza della finestra
-        hop_size = int(np.floor(audio_length/13))  # definisce il tempo tra finestre successive (previsto overlapping)
-        window = sp.signal.get_window(window='hanning', Nx=win_length)
-        train_win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
-        for i in np.arange(train_win_number):
-            frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
-            frame_wind = frame * window
-            spec = np.fft.fft(frame_wind)  # esegue la fast fourier transform della finestra di segnale
-            nyquist = int(np.floor(spec.shape[0] / 2))  # individua la frequenza di Nyquist (massima/2)
-            spec = spec[1:nyquist]  # taglia tutte le frequenze oltre quella di nyquist
-            train_features[index, i] = compute_speccentr(spec)
-    dict_train_features[c] = train_features
-    class_test_files = class_files[pivot:]
-    n_test_samples = len(class_test_files)
-    test_features = np.zeros((n_test_samples, windows))
-    for index, f in enumerate(class_test_files):
-        audio, fs = librosa.load(os.path.join(root, f), sr=None)
-        audio_length = len(audio)
-        win_length = int(np.floor(audio_length/11))  # definisce la lunghezza della finestra
-        hop_size = int(np.floor(audio_length/13))  # definisce il tempo tra finestre successive (previsto overlapping)
-        window = sp.signal.get_window(window='hanning', Nx=win_length)
-        test_win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
-        for i in np.arange(test_win_number):
-            frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
-            frame_wind = frame * window
-            spec = np.fft.fft(frame_wind)  # esegue la fast fourier transform della finestra di segnale
-            nyquist = int(np.floor(spec.shape[0] / 2))  # individua la frequenza di Nyquist (massima/2)
-            spec = spec[1:nyquist]  # taglia tutte le frequenze oltre quella di nyquist
-            test_features[index, i] = compute_speccentr(spec)
-    dict_test_features[c] = test_features
+for inst in instruments:
+    for c in classes:
+        root = path + 'IDMT-SMT-AUDIO-EFFECTS/{}/Samples/{}/'.format(inst, c)  # path of the file parametrized
+        class_files = [f for f in os.listdir(root) if f.endswith('.wav')]  # array of traks' path
+        random.shuffle(class_files)
+        n_samples = len(class_files)
+        pivot = int(np.floor(n_samples*0.8))
+        class_train_files = class_files[:pivot]
+        n_train_samples = len(class_train_files)
+        n_features = 6
+        train_features = np.zeros((n_train_samples, n_features))
+        for index, f in enumerate(class_train_files):
+            audio, fs = librosa.load(os.path.join(root, f), sr=None)  # loads the file
+            audio = cut_before_power_max(audio)
+            audio_length = len(audio)
+            win_length = 8192  # definisce la lunghezza della finestra
+            hop_size = 512  # definisce il tempo tra finestre successive (previsto overlapping)
+            window = sp.signal.get_window(window='hanning', Nx=win_length)
+            train_win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
+            speccentr = np.zeros(train_win_number)
+            specdec = np.zeros(train_win_number)
+            rolloff = librosa.feature.spectral_rolloff(audio, fs)
+            for i in np.arange(train_win_number):
+                frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
+                speccentr[i] = compute_speccentr(frame)
+                specdec[i] = compute_specdec(frame)
+            train_features[index, 0] = np.mean(rolloff)
+            train_features[index, 1] = np.std(rolloff)
+            train_features[index, 2] = np.mean(speccentr)
+            train_features[index, 3] = np.std(speccentr)
+            train_features[index, 4] = np.mean(specdec)
+            train_features[index, 5] = np.std(specdec)
+        if not len(dict_train_features[c]):
+            dict_train_features[c] = train_features
+        else:
+            dict_train_features[c] = np.concatenate((dict_train_features[c], train_features), axis=0)
+        class_test_files = class_files[pivot:]
+        n_test_samples = len(class_test_files)
+        test_features = np.zeros((n_test_samples, n_features))
+        for index, f in enumerate(class_test_files):
+            audio, fs = librosa.load(os.path.join(root, f), sr=None)  # loads the file
+            audio = cut_before_power_max(audio)
+            audio_length = len(audio)
+            win_length = 8192  # definisce la lunghezza della finestra
+            hop_size = 512  # definisce il tempo tra finestre successive (previsto overlapping)
+            window = sp.signal.get_window(window='hanning', Nx=win_length)
+            test_win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
+            speccentr = np.zeros(test_win_number)
+            specdec = np.zeros(test_win_number)
+            rolloff = librosa.feature.spectral_rolloff(audio, fs)
+            for i in np.arange(test_win_number):
+                frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
+                speccentr[i] = compute_speccentr(frame)
+                specdec[i] = compute_specdec(frame)
+            test_features[index, 0] = np.mean(rolloff)
+            test_features[index, 1] = np.std(rolloff)
+            test_features[index, 2] = np.mean(speccentr)
+            test_features[index, 3] = np.std(speccentr)
+            test_features[index, 4] = np.mean(specdec)
+            test_features[index, 5] = np.std(specdec)
+        if not len(dict_test_features[c]):
+            dict_test_features[c] = test_features
+        else:
+            dict_test_features[c] = np.concatenate((dict_test_features[c], test_features), axis=0)
 
 
 #%% FEATURE VISUALIZATION
