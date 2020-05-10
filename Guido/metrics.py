@@ -27,8 +27,8 @@ def compute_metrics(gt_labels, predicted_labels):
 def compute_cm(real, predicted):
 	cm = np.zeros((len(classes), len(classes)))
 
-	for c in classes:
-		pred_class = predicted[real == c]
+	for i, c in enumerate(classes):
+		pred_class = predicted[real == i]
 		for d in pred_class:
-			cm[classes.index(c), classes.index(d)] += 1
+			cm[i, int(d)] += 1
 	return cm

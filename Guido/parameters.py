@@ -1,13 +1,14 @@
 
-instruments = ['BM']
+instruments = ['GM']
 classes = ['NOFX', 'TREM', 'DIST']
 
-features = ['ZCR', 'SpecRollOff', 'SpecCentr', 'SpecBandWidth', 'SpecContrast']
-n_features = 5
+# features = ['ZCR', 'SpecRollOff', 'SpecCentr', 'SpecBandWidth', 'SpecContrast']
+features = ['ZCR', 'SpecRollOff', 'SpecCentr', 'SpecBandWidth', 'SpecContrast', 'der']
+n_features = 6
 
-data_proportion = 0.2  # 1 = All
-test_proportion = 0.3  # 20% test
+data_proportion = 0.1  # 1 = All
+test_proportion = 0.2  # 20% test
 
 
-win_length = 4000
-hop_size = 4000
+win_length = 2000
+hop_size = 2000

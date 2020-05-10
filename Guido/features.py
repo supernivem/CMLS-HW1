@@ -20,10 +20,12 @@ def compute_features(audio, sr):
 	frames_spec = []
 	frames_pow = []
 
-	n_frames = int(np.ceil((len(audio) - win_length) / hop_size))
+	n_frames = int(np.floor((len(audio) - win_length) / hop_size))
 
 	for i in range(n_frames):
 		frame = audio[(i * hop_size): np.min([i * hop_size + win_length, len(audio)])]
+		window = sp.signal.get_window(window='hanning', Nx=win_length)
+		frame = frame * window
 
 		frame_mean = np.mean(frame)
 		frame_spec = np.fft.fft(frame)
@@ -33,9 +35,8 @@ def compute_features(audio, sr):
 		frames_spec.append(frame_spec)
 		frames_pow.append(frame_pow)
 
-	computed_features = np.random.random(5)
+	computed_features = []
 
-	'''
 	for feat in features:
 
 		if feat == 'ZCR':
@@ -43,18 +44,12 @@ def compute_features(audio, sr):
 			temp = np.mean(temp)
 
 		elif feat == 'SpecRollOff':
-			temp = librosa.feature.spectral_rolloff(audio, sr)
+			temp = librosa.feature.spectral_rolloff(audio, sr=sr)
 			temp = np.mean(temp)
 
 		elif feat == 'SpecCentr':
-			temp = librosa.feature.spectral_centroid(audio, sr)
+			temp = librosa.feature.spectral_centroid(audio, sr=sr)
 			temp = np.mean(temp)
-
-		elif feat == 'SpecDec':
-			pass
-
-		elif feat == 'TempCentr':
-			pass
 
 		elif feat == 'SpecBandWidth':
 			temp = librosa.feature.spectral_bandwidth(audio, sr)
@@ -64,6 +59,13 @@ def compute_features(audio, sr):
 			temp = librosa.feature.spectral_bandwidth(audio, sr)
 			temp = np.mean(temp)
 
+		elif feat == 'der':
+			temp = 1
+			for i in range(n_frames - 2):
+				if (frames_pow[i] > frames_pow[i+1]) & (frames_pow[i+1] < frames_pow[i+2]):
+					temp += 1
+			temp = np.log(temp)
+
 		computed_features.append(temp)
-	'''
+
 	return computed_features
