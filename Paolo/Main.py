@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import sklearn.svm
 import scipy as sp
 import random
+import itertools
 
 
 #%% FEATURE DEFINITION
@@ -21,6 +22,30 @@ def compute_speccentr(spec):
     k_axis = np.arange(1, spec.shape[0] + 1)  # numeri che vanno da 1 incluso a lunghezza spec + 1 escluso
     centr = np.sum(np.transpose(k_axis) * np.abs(spec)) / (np.sum(np.abs(spec)) + 1e-16)  # prodotto matriciale! Tra vettori, il primo va trasposto
     return centr
+
+
+# SPECTRAL FLUX
+def compute_specflux(spec):
+    X = np.c_[spec[:], spec]
+    afDeltaX = np.diff(X, 1, axis=1)
+    vsf = np.sqrt((afDeltaX**2).sum(axis=0)) / X.shape[0]
+    return vsf
+
+
+#%% COMPUTE FEATURES' VECTOR
+param = 6
+
+
+def compute_vector(features):
+    vector = np.zeros(len(features)*param)
+    for i, feat in enumerate(features):
+        vector[i*param] = np.mean(feat)  # mean value
+        vector[i*param+1] = np.std(feat)  # standard deviation
+        vector[i*param+2] = np.mean(np.diff(feat))  # mean value of first derivative
+        vector[i*param+3] = np.std(np.diff(feat))  # standard deviation of first derivative
+        vector[i*param+4] = np.mean(np.diff(np.diff(feat)))  # mean value of second derivative
+        vector[i*param+5] = np.std(np.diff(np.diff(feat)))  # standard deviation of second derivative
+    return vector
 
 
 #%% PREPROCESSING
@@ -40,88 +65,67 @@ def cut_before_power_max(audio):
     return audio[index_max*frame_length:]
 
 
-#%% COMPUTE TRAINING FEATURE
-classes = ['NoFX', 'Tremolo', 'Distortion']
+#%% COMPUTE TRAINING AND TEST FEATURE
+classes = ['Tremolo', 'Distortion', 'NoFX']
 instruments = ['Bass monophon', 'Gitarre monophon', 'Gitarre polyphon']
 path = 'C:/Users/pao_b/Documents/POLITECNICO/AA 2019-20/CMLS/Homework1/'
-dict_train_features = {'Tremolo': [], 'Distortion': [], 'NoFX': []}
-dict_test_features = {'Tremolo': [], 'Distortion': [], 'NoFX': []}
+groups = ['train', 'test']
+dict_features = {}
 
-for inst in instruments:
-    for c in classes:
-        root = path + 'IDMT-SMT-AUDIO-EFFECTS/{}/Samples/{}/'.format(inst, c)  # path of the file parametrized
-        class_files = [f for f in os.listdir(root) if f.endswith('.wav')]  # array of traks' path
-        random.shuffle(class_files)
-        n_samples = len(class_files)
-        pivot = int(np.floor(n_samples*0.8))
-        class_train_files = class_files[:pivot]
-        n_train_samples = len(class_train_files)
-        n_features = 6
-        train_features = np.zeros((n_train_samples, n_features))
-        for index, f in enumerate(class_train_files):
-            audio, fs = librosa.load(os.path.join(root, f), sr=None)  # loads the file
-            audio = cut_before_power_max(audio)
-            audio_length = len(audio)
-            win_length = 8192  # definisce la lunghezza della finestra
-            hop_size = 512  # definisce il tempo tra finestre successive (previsto overlapping)
-            window = sp.signal.get_window(window='hanning', Nx=win_length)
-            train_win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
-            speccentr = np.zeros(train_win_number)
-            specdec = np.zeros(train_win_number)
-            rolloff = librosa.feature.spectral_rolloff(audio, fs)
-            for i in np.arange(train_win_number):
-                frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
-                speccentr[i] = compute_speccentr(frame)
-                specdec[i] = compute_specdec(frame)
-            train_features[index, 0] = np.mean(rolloff)
-            train_features[index, 1] = np.std(rolloff)
-            train_features[index, 2] = np.mean(speccentr)
-            train_features[index, 3] = np.std(speccentr)
-            train_features[index, 4] = np.mean(specdec)
-            train_features[index, 5] = np.std(specdec)
-        if not len(dict_train_features[c]):
-            dict_train_features[c] = train_features
-        else:
-            dict_train_features[c] = np.concatenate((dict_train_features[c], train_features), axis=0)
-        class_test_files = class_files[pivot:]
-        n_test_samples = len(class_test_files)
-        test_features = np.zeros((n_test_samples, n_features))
-        for index, f in enumerate(class_test_files):
-            audio, fs = librosa.load(os.path.join(root, f), sr=None)  # loads the file
-            audio = cut_before_power_max(audio)
-            audio_length = len(audio)
-            win_length = 8192  # definisce la lunghezza della finestra
-            hop_size = 512  # definisce il tempo tra finestre successive (previsto overlapping)
-            window = sp.signal.get_window(window='hanning', Nx=win_length)
-            test_win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
-            speccentr = np.zeros(test_win_number)
-            specdec = np.zeros(test_win_number)
-            rolloff = librosa.feature.spectral_rolloff(audio, fs)
-            for i in np.arange(test_win_number):
-                frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
-                speccentr[i] = compute_speccentr(frame)
-                specdec[i] = compute_specdec(frame)
-            test_features[index, 0] = np.mean(rolloff)
-            test_features[index, 1] = np.std(rolloff)
-            test_features[index, 2] = np.mean(speccentr)
-            test_features[index, 3] = np.std(speccentr)
-            test_features[index, 4] = np.mean(specdec)
-            test_features[index, 5] = np.std(specdec)
-        if not len(dict_test_features[c]):
-            dict_test_features[c] = test_features
-        else:
-            dict_test_features[c] = np.concatenate((dict_test_features[c], test_features), axis=0)
+for g in groups:
+    dict_features[g] = {}
+    for inst in instruments:
+        for c in classes:
+            root = path + 'IDMT-SMT-AUDIO-EFFECTS/{}/Samples/{}/'.format(inst, c)  # path of the file parametrized
+            class_files = [f for f in os.listdir(root) if f.endswith('.wav')]  # array of traks' path
+            random.shuffle(class_files)
+            n_samples = len(class_files)
+            pivot = int(np.floor(n_samples*0.8))
+            limit = int(np.floor(n_samples*1))
+            if g == 'train':
+                class_files = class_files[:pivot]
+            else:
+                class_files = class_files[pivot:limit]
+            n_train_samples = len(class_files)
+            n_features = 5
+            features = np.zeros((n_train_samples, n_features*param))
+            for index, f in enumerate(class_files):
+                audio, fs = librosa.load(os.path.join(root, f), sr=None)  # loads the file
+                audio = cut_before_power_max(audio)
+                audio_length = len(audio)
+                win_length = 8192  # definisce la lunghezza della finestra
+                hop_size = 512  # definisce il tempo tra finestre successive (previsto overlapping)
+                window = sp.signal.get_window(window='hanning', Nx=win_length)
+                win_number = int(np.floor((audio_length - win_length) / hop_size))  # totale delle finestre nella traccia, l'ultima risulterebbbe tronca e va tolta
+                speccentr = np.zeros(win_number)
+                specdec = np.zeros(win_number)
+                specflux = np.zeros(win_number)
+                power = np.zeros(win_number)
+                for i in np.arange(win_number):
+                    frame = audio[i * hop_size: i * hop_size + win_length]  # estrae i campioni della finestra in analisi
+                    frame2 = audio[i * hop_size: i * hop_size + hop_size]
+                    frame_wind = frame * window
+                    spec = np.fft.fft(frame_wind)  # esegue la fast fourier transform della finestra di segnale
+                    nyquist = int(np.floor(spec.shape[0] / 2))  # individua la frequenza di Nyquist (massima/2)
+                    spec = spec[1:nyquist]  # taglia tutte le frequenze oltre quella di nyquist
+                    speccentr[i] = compute_speccentr(spec)
+                    specdec[i] = compute_specdec(spec)
+                    power[i] = compute_audio_power(frame2)
+                rolloff = librosa.feature.spectral_rolloff(audio, fs)
+                specband = librosa.feature.spectral_bandwidth(audio, fs)
+                features[index, :] = compute_vector([rolloff, speccentr, specdec, specband, power])
+            dict_features[g][c] = features
 
 
-#%% FEATURE VISUALIZATION
+# FEATURE VISUALIZATION
 for c in classes:
-    specdec = dict_train_features[c].transpose()
+    specdec = dict_features['train'][c].transpose()
     # Visualization
     fig = plt.figure(figsize=(16, 6))
     plt.imshow(specdec, origin='lower', aspect='auto')
     plt.xlabel('Training samples')
-    plt.ylabel('Spectral decrease coefficients')
-    plt.title('Spectral decrease coefficients for class {}'.format(c))
+    plt.ylabel('Features coefficients')
+    plt.title('Features coefficients (mean, std and decrease) for class {}'.format(c))
     plt.colorbar()
     plt.tight_layout()
     plt.show()
@@ -141,74 +145,50 @@ def compute_metrics(gt_labels, predicted_labels):
         accuracy, precision, recall, F1_score))
 
 
-#%% CLASSIFICATION ON MULTICLASSES
-class_0 = 'Tremolo'
-class_1 = 'Distortion'
-class_2 = 'NoFX'
+# CLASSIFICATION ON MULTICLASSES
+X = {}
+y = {}
 
-X_train_0 = dict_train_features[class_0]
-X_train_1 = dict_train_features[class_1]
-X_train_2 = dict_train_features[class_2]
-
-y_train_0 = np.zeros((X_train_0.shape[0],))
-y_train_1 = np.ones((X_train_1.shape[0],))
-y_train_2 = np.ones((X_train_2.shape[0],))*2
-
-X_test_0 = dict_test_features[class_0]
-X_test_1 = dict_test_features[class_1]
-X_test_2 = dict_test_features[class_2]
-
-y_test_0 = np.zeros((X_test_0.shape[0],))
-y_test_1 = np.ones((X_test_1.shape[0],))
-y_test_2 = np.ones((X_test_2.shape[0],))*2
-
-y_test_mc = np.concatenate((y_test_0, y_test_1, y_test_2), axis=0)
+for g in groups:
+    X[g] = {}
+    y[g] = {}
+    for i, c in enumerate(classes):
+        X[g][c] = dict_features[g][c]
+        y[g][c] = np.ones((X[g][c].shape[0],))*i
+y_test_mc = np.concatenate(list(y['test'].values()), axis=0)
 
 
 # NORMALIZE FEATURE
 
-feat_max = np.max(np.concatenate((X_train_0, X_train_1, X_train_2), axis=0), axis=0)
-feat_min = np.min(np.concatenate((X_train_0, X_train_1, X_train_2), axis=0), axis=0)
+feat_max = np.max(np.concatenate(list(X['train'].values()), axis=0), axis=0)
+feat_min = np.min(np.concatenate(list(X['train'].values()), axis=0), axis=0)
 
-X_train_0_normalized = (X_train_0 - feat_min) / (feat_max - feat_min)
-X_train_1_normalized = (X_train_1 - feat_min) / (feat_max - feat_min)
-X_train_2_normalized = (X_train_2 - feat_min) / (feat_max - feat_min)
+X_normalized = {}
+for g in groups:
+    X_normalized[g] = {}
+    for c in classes:
+        X_normalized[g][c] = (X[g][c] - feat_min) / (feat_max - feat_min)
 
-X_test_0_normalized = (X_test_0 - feat_min) / (feat_max - feat_min)
-X_test_1_normalized = (X_test_1 - feat_min) / (feat_max - feat_min)
-X_test_2_normalized = (X_test_2 - feat_min) / (feat_max - feat_min)
-
-X_test_mc_normalized = np.concatenate((X_test_0_normalized, X_test_1_normalized, X_test_2_normalized), axis=0)
+X_test_mc_normalized = np.concatenate(list(X_normalized['test'].values()), axis=0)
 
 
 # DEFINE AND TRAIN A MODEL FOR EACH COUPLE OF CLASSES
 
 SVM_parameters = {'C': 1, 'kernel': 'rbf'}
 
-clf_01 = sklearn.svm.SVC(**SVM_parameters, probability=True)
-clf_02 = sklearn.svm.SVC(**SVM_parameters, probability=True)
-clf_12 = sklearn.svm.SVC(**SVM_parameters, probability=True)
-
-clf_01.fit(np.concatenate((X_train_0_normalized, X_train_1_normalized), axis=0),
-           np.concatenate((y_train_0, y_train_1), axis=0))
-
-clf_02.fit(np.concatenate((X_train_0_normalized, X_train_2_normalized), axis=0),
-           np.concatenate((y_train_0, y_train_2), axis=0))
-
-clf_12.fit(np.concatenate((X_train_1_normalized, X_train_2_normalized), axis=0),
-           np.concatenate((y_train_1, y_train_2), axis=0))
-
-
-# EVALUATE EACH CLASSIFIER
-
-y_test_predicted_01 = clf_01.predict(X_test_mc_normalized).reshape(-1, 1)
-y_test_predicted_02 = clf_02.predict(X_test_mc_normalized).reshape(-1, 1)
-y_test_predicted_12 = clf_12.predict(X_test_mc_normalized).reshape(-1, 1)
+combinations = list(itertools.combinations(classes, 2))
+y_test_predicted = {}
+for i, comb in enumerate(combinations):
+    clf = sklearn.svm.SVC(**SVM_parameters, probability=True)
+    x_conc = np.concatenate((X_normalized['train'][comb[0]], X_normalized['train'][comb[1]]), axis=0)
+    y_conc = np.concatenate((y['train'][comb[0]], y['train'][comb[1]]), axis=0)
+    clf.fit(x_conc, y_conc)
+    y_test_predicted[i] = clf.predict(X_test_mc_normalized).reshape(-1, 1)  # evaluate each classifier
 
 
 # MAJORITY VOTING
 
-y_test_predicted_mc = np.concatenate((y_test_predicted_01, y_test_predicted_02, y_test_predicted_12), axis=1)
+y_test_predicted_mc = np.concatenate(list(y_test_predicted.values()), axis=1)
 y_test_predicted_mc = np.array(y_test_predicted_mc, dtype=np.int)
 
 y_test_predicted_mv = np.zeros((y_test_predicted_mc.shape[0],))
@@ -216,7 +196,7 @@ for i, e in enumerate(y_test_predicted_mc):
     y_test_predicted_mv[i] = np.bincount(e).argmax()
 
 
-#%% COMPUTING CONFUSION MATRIX FOR MULTICLASS
+# COMPUTING CONFUSION MATRIX FOR MULTICLASS
 
 def compute_cm_multiclass(gt, predicted):
     classes = np.unique(gt)
@@ -229,6 +209,7 @@ def compute_cm_multiclass(gt, predicted):
         for j in np.arange(len(pred_class)):
             CM[i, int(pred_class[j])] = CM[i, int(pred_class[j])] + 1
     print(CM)
+    print((CM / CM.sum(axis=1).reshape((-1, 1)))*100)
 
 
 compute_cm_multiclass(y_test_mc, y_test_predicted_mv)
