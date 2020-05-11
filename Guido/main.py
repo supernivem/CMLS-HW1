@@ -16,6 +16,7 @@ from Guido.features import *
 from Guido.metrics import *
 
 # Compute features and labels
+tot_train_files = 0
 x_train, y_train, x_test, y_test = [], [], [], []
 for inst in instruments:
 	for class_index, cls in enumerate(classes):
@@ -32,6 +33,7 @@ for inst in instruments:
 				temp_features = compute_features(audio, fs)
 
 				if i < last_train_file_excluded:
+					tot_train_files += 1
 					x_train.append(temp_features)
 					y_train.append(class_index)
 				else:
@@ -46,6 +48,14 @@ y_train = np.array(y_train)
 y_train.reshape(-1, 1)
 y_test = np.array(y_test)
 y_test.reshape(-1, 1)
+
+for feat_index, feat in enumerate(features):
+	plt.figure(figsize=(16, 8))
+	for class_index, cls in enumerate(classes):
+		sns.distplot(x_train[y_train == class_index, feat_index], label='Histogram for class {} of feature {}'.format(cls, feat))
+	plt.legend()
+	plt.grid(True)
+	plt.show()
 
 # Normalization
 feat_max = np.max(x_train, axis=0)
@@ -91,8 +101,5 @@ for i, e in enumerate(y_test_predicted_mc):
 	y_test_predicted[i] = np.bincount(e).argmax()
 """
 
-
 # Metrics
-cm = compute_cm(y_test, y_test_predicted)
-# compute_metrics(y_test, y_test_predicted)
-print(cm)
+compute_cm(y_test, y_test_predicted)

@@ -26,9 +26,15 @@ def compute_metrics(gt_labels, predicted_labels):
 
 def compute_cm(real, predicted):
 	cm = np.zeros((len(classes), len(classes)))
-
+	tot = 0
+	trues = 0
 	for i, c in enumerate(classes):
 		pred_class = predicted[real == i]
 		for d in pred_class:
 			cm[i, int(d)] += 1
-	return cm
+			tot += 1
+			if i == int(d):
+				trues += 1
+	accuracy = trues / tot * 100
+	print(cm)
+	print('Accuracy: {:.2f}%'.format(accuracy))

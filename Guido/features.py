@@ -64,7 +64,7 @@ def compute_features(audio, sr):
 			for i in range(n_frames - 2):
 				if (frames_pow[i] > frames_pow[i+1]) & (frames_pow[i+1] < frames_pow[i+2]):
 					temp += 1
-			temp = np.log(temp)
+			# temp = np.log(temp)
 
 		computed_features.append(temp)
 
